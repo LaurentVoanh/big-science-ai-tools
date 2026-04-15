@@ -1,4 +1,12 @@
 ```
+# Compiled and build artifacts
+*.pyc
+__pycache__/
+
+# Dependencies
+vendor/
+node_modules/
+
 # Logs and temp files
 *.log
 *.tmp
@@ -7,27 +15,18 @@
 # Environment
 .env
 .env.local
-.env.*
+*.env.*
 
-# Sessions and runtime data
-V5/logs/
-V5/sessions/
-
-# Dependencies and build artifacts
-vendor/
-composer.lock
-
-# Editor/IDE files
+# Editors
 .vscode/
 .idea/
-*.swp
-*.swo
 
-# System files
+# OS generated files
 .DS_Store
 Thumbs.db
 
-# Cache directories
-.cache/
-.php_cs.cache
+# Build and distribution
+dist/
+build/
+target/
 ```
