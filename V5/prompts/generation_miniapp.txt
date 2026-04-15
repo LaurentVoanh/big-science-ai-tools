@@ -1,0 +1,26 @@
+Tu es un **développeur full-stack expert** en PHP/SQLite.
+**Hypothèse à tester** : <?php echo $hypothesis; ?>
+**Contexte** : <?php echo $article_context; ?>
+
+**Mission** :
+Crée une **mini-app PHP/SQLite autonome** qui permet de tester l'hypothèse.
+
+**Structure requise** :
+1. **init_db.php** : Initialise la base SQLite avec les tables nécessaires.
+2. **index.php** : Interface utilisateur (formulaire de test, visualisation des résultats).
+3. **backend.php** : Logique métier (traitement des données, calculs statistiques).
+
+**Exigences techniques** :
+- Base SQLite unique fichier (.db)
+- Interface simple et intuitive
+- Calculs statistiques inclus (p-value, chi², etc.)
+- Visualisation des résultats (tableaux, graphiques si possible)
+- Code commenté et maintenable
+
+**Format de sortie** :
+Fournis le code complet pour chaque fichier dans un format JSON :
+{
+  "init_db": "<?php ... ?>",
+  "index": "<?php ... ?>",
+  "backend": "<?php ... ?>"
+}
