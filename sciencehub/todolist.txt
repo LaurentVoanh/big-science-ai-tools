@@ -1,0 +1,1457 @@
+ INSTRUCTIONS POUR UN SYSTÈME D'AUTO-RECHERCHE AVEC AUTO-RENFORCEMENT
+
+
+🎯 OBJECTIFS PRINCIPAUX
+
+
+Auto-recherche intelligente :
+
+L’IA choisit, exécute, et optimise les requêtes sans intervention humaine.
+Auto-renforcement : Elle apprend de chaque session pour améliorer les suivantes.
+
+
+Communication sympathique :
+
+L’IA parle à l’utilisateur à chaque étape (ex: "Je vais maintenant interroger PubMed pour trouver des études sur BRCA1…").
+Ton amical et pédagogique (ex: "Super ! J’ai trouvé 45 études sur PubMed. Je passe à ClinVar…").
+
+
+Auto-documentation :
+
+L’IA rédige des articles sur son propre fonctionnement (ex: "Comment j’ai optimisé ma recherche sur BRCA1").
+Elle explique ses améliorations (ex: "J’ai appris que pour les gènes, UniProt est plus fiable que Wikipedia").
+
+
+Gestion des prompts :
+
+Les prompts IA sont stockés dans des fichiers texte (ex: prompts/selection_sujet.txt).
+L’IA crée de nouveaux prompts pour tester des stratégies (ex: prompts/nouvelle_strategie_brca1.txt).
+Elle teste ses propres prompts pour s’améliorer.
+
+
+Intégration des mini-apps dans les articles :
+
+Les mini-apps générées (PHP/SQLite) sont intégrées directement dans les articles (ex: "Pour tester cette hypothèse, utilisez l’application ci-dessous : [Lien vers la mini-app]").
+Les résultats des mini-apps sont affichés dans l’article (ex: "Les tests montrent que 80% des patientes avec la mutation c.5266dupC résistent à Olaparib (p-value = 0.001)").
+
+
+Communication contextuelle :
+
+L’utilisateur peut choisir le contexte (ex: "Focus sur l’oncologie", "Évite les sources peu fiables").
+L’IA adapte ses prompts en fonction du contexte.
+
+
+
+
+🗃️ STRUCTURE DES FICHIERS
+text
+Copier
+
+nexus/
+├── config.php                  # Configuration de base (clés API, base SQLite)
+├── index.php                   # Page d'accueil (formulaire + communication IA)
+├── process.php                 # Moteur principal (10 étapes automatiques + communication)
+├── results.php                 # Page de résultats finaux
+├── prompts/                    # Dossier pour les prompts IA
+│   ├── selection_sujet.txt     # Prompt pour choisir un sujet
+│   ├── generation_requetes.txt # Prompt pour générer des requêtes
+│   ├── synthese_article.txt    # Prompt pour synthétiser un article
+│   ├── validation_article.txt  # Prompt pour valider un article
+│   ├── analyse_patterns.txt    # Prompt pour analyser les patterns
+│   ├── generation_miniapp.txt # Prompt pour générer une mini-app
+│   └── auto_evaluation.txt      # Prompt pour l'auto-évaluation
+├── logs/                       # Logs des sessions et améliorations
+│   ├── sessions/               # Logs par session
+│   │   └── sess_abc123.txt      # Exemple de log
+│   └── improvements.log        # Log des améliorations
+├── articles/                   # Articles générés (y compris sur l'IA elle-même)
+│   ├── medical/                # Articles médicaux
+│   │   └── brca1_parp.md        # Exemple d'article médical
+│   └── system/                 # Articles sur le système IA
+│       ├── evolution_ia.md      # Article sur l'évolution de l'IA
+│       └── strategie_optimisee.md # Article sur les stratégies optimisées
+├── mini_apps/                  # Mini-apps générées
+│   └── app_sess_abc123/        # Exemple de mini-app
+│       ├── index.php           # Frontend
+│       ├── backend.php         # Backend
+│       ├── init_db.php         # Initialisation de la base
+│       └── hypothesis_test.db  # Base SQLite de l'app
+├── nexus.db                    # Base SQLite globale
+└── assets/
+    └── style.css               # Styles CSS
+
+
+
+
+
+
+🔄 WORKFLOW AVEC AUTO-RENFORCEMENT ET COMMUNICATION
+
+🔹 Étape 0 : Initialisation (Communication + Contexte)
+Objectif : L’IA se présente, explique son rôle, et demande un contexte (si l’utilisateur le souhaite).
+IA (Communication) :
+plaintext
+Copier
+
+"👋 Bonjour ! Je suis **NEXUS AI**, votre assistant de recherche médicale autonome.
+Mon objectif aujourd’hui : **Trouver des découvertes réelles** en combinant 36 sources scientifiques, en générant des hypothèses, et en les testant via des mini-apps.
+
+💡 **Que souhaitez-vous faire ?**
+1. 🔍 **Lancer une recherche automatique** (je choisis un sujet à haut potentiel).
+2. 📝 **Poser une question précise** (ex: 'Mécanismes de résistance aux inhibiteurs de PARP dans BRCA1').
+3. ⚙️ **Choisir un contexte** (ex: 'Focus sur l’oncologie', 'Éviter les sources peu fiables').
+4. 📖 **Lire mes derniers articles sur mon évolution** (comment j’ai appris à mieux chercher).
+
+💬 **Dites-moi simplement ce que vous voulez, et je m’occupe de tout !**
+*(Exemple : 'Recherche auto' ou 'Focus oncologie + BRCA1')*
+"
+
+**Utilisateur** :
+- Peut **saisir une question** (ex: *"BRCA1 et résistance aux inhibiteurs de PARP"*).
+- Peut **choisir un contexte** (ex: *"Focus oncologie"*).
+- Peut **lancer une recherche automatique** (l’IA choisit le sujet).
+
+**Stockage** :
+- **Contexte utilisateur** stocké en session (`$_SESSION['context']`).
+- **Log de la session** dans `logs/sessions/sess_abc123.txt` :
+
+
+
+[15:00:00] Début de session - Contexte: "Focus oncologie"
+
+[15:00:05] Utilisateur a choisi: "BRCA1 et résistance aux inhibiteurs de PARP"
+text
+Copier
+
+---
+
+---
+
+### **🔹 Étape 1 : Sélection du Sujet (Avec Communication)**
+**Objectif** : Choisir un **sujet médical à haut potentiel** (si mode auto) ou utiliser la question de l’utilisateur.
+
+**IA (Prompt)** :
+*(Stocké dans `prompts/selection_sujet.txt`)*
+```plaintext
+"Tu es un **directeur de recherche médicale** spécialisé dans les découvertes innovantes.
+**Contexte utilisateur** : {\$_SESSION['context']} (ex: 'Focus oncologie').
+
+**Mission** :
+1. Si l'utilisateur a fourni une question : **utilise-la directement**.
+2. Sinon (mode auto) :
+ - Analyse les **tendances récentes (2020–2025)** dans les bases scientifiques.
+ - Identifie un **sujet avec un potentiel de découverte réel** (ex: mécanisme inconnu, interaction inédite, cible thérapeutique nouvelle).
+ - **Évite les sujets déjà traités** (liste: {\$treated_topics}).
+3. **Propose 1 sujet** avec :
+ - Un **titre précis** (5–7 mots).
+ - Une **justification** (pourquoi ce sujet a un potentiel ?).
+ - Un **domaine** (oncologie, génétique, etc.).
+ - Un **score de potentiel** (0.0–1.0).
+
+**Format JSON strict** :
+{
+\"sujet\": \"Mécanismes de résistance aux inhibiteurs de PARP dans BRCA1\",
+\"justification\": \"5 études récentes montrent des résultats contradictoires sur l'efficacité des inhibiteurs de PARP chez les patientes BRCA1-mutées. Aucune étude n'a exploré le rôle de la protéine X dans ce mécanisme.\",
+\"domaine\": \"oncologie\",
+\"score_potentiel\": 0.95
+}
+"
+
+**IA (Communication)** :
+```plaintext
+"🔍 **Recherche du sujet idéal...**
+Je parcours mes bases de données pour trouver un sujet **à haut potentiel de découverte**...
+*(Cela peut prendre quelques secondes...)*
+
+✅ **Sujet sélectionné** : *'Mécanismes de résistance aux inhibiteurs de PARP dans BRCA1'*
+📌 **Pourquoi ce sujet ?** : 5 études récentes montrent des résultats contradictoires, et aucune n'a exploré le rôle de la protéine X.
+🎯 **Domaine** : Oncologie | **Score de potentiel** : 9.5/10
+
+👉 **Je passe maintenant à l’étape suivante : Sélection des sources les plus pertinentes...**
+"
+
+
+
+Stockage :
+
+Sujet stocké en base (sessions table) et en session ($_SESSION['topic']).
+Log :
+text
+Copier
+
+[15:00:10] Sujet sélectionné: "Mécanismes de résistance aux inhibiteurs de PARP dans BRCA1" (Score: 0.95)
+
+
+
+
+
+
+🔹 Étape 2 : Sélection des Sources (Avec Communication + Auto-Renforcement)
+Objectif : Sélectionner les 10–15 sources les plus pertinentes pour le sujet, en priorisant celles avec un success_rate > 0.7.
+IA (Prompt) :
+
+(Stocké dans prompts/generation_requetes.txt)
+plaintext
+Copier
+
+"Tu es un **stratège en recherche médicale**.
+**Sujet** : '{$session['topic']}'
+**Contexte utilisateur** : {$_SESSION['context']}
+**Stratégies existantes** : " . json_encode($existing_strategies) . "
+
+**Mission** :
+1. Sélectionne **10–15 sources** parmi : " . implode(", ", array_keys($SOURCES_CONFIG)) . ".
+2. **Priorise les sources avec un success_rate > 0.7** dans mes stratégies existantes.
+3. Pour chaque source, justifie ton choix en 1 phrase.
+
+**Format JSON strict** :
+{
+  \"sources\": [\"PubMed\", \"ClinVar\", \"UniProt\"],
+  \"justifications\": {
+    \"PubMed\": \"Source incontournable pour les études cliniques sur BRCA1.\",
+    \"ClinVar\": \"Contient 500+ mutations de BRCA1 avec leur impact clinique.\",
+    \"UniProt\": \"Fournit la structure et les interactions de la protéine BRCA1 (P00718).\"
+  }
+}
+"
+
+**IA (Communication)** :
+```plaintext
+"📚 **Sélection des sources en cours...**
+Je choisis les **meilleures sources** pour '{\$session['topic']}' en me basant sur mes expériences passées...
+
+📌 **Sources sélectionnées** :
+1. ✅ **PubMed** : Source incontournable pour les études cliniques sur BRCA1.
+2. ✅ **ClinVar** : Contient 500+ mutations de BRCA1 avec leur impact clinique.
+3. ✅ **UniProt** : Fournit la structure et les interactions de la protéine BRCA1 (P00718).
+4. ✅ **Reactome** : Pour explorer les pathways impliquant BRCA1.
+5. ✅ **ChEMBL** : Pour identifier les inhibiteurs de PARP existants.
+
+👉 **Je génère maintenant les requêtes optimisées pour chaque source...**
+"
+
+
+
+Auto-Renforcement :
+
+Mise à jour de query_strategies :
+
+Si une source est sélectionnée, son success_rate est initialisé à 0.5 (si non existant).
+Log :
+text
+Copier
+
+[15:00:15] Sources sélectionnées: ["PubMed", "ClinVar", "UniProt", "Reactome", "ChEMBL"]
+
+
+
+
+
+
+
+🔹 Étape 3 : Génération des Requêtes (Avec Communication + Optimisation)
+Objectif : Générer des requêtes optimisées pour chaque source, en utilisant les stratégies existantes (query_strategies).
+IA (Prompt) :
+
+(Stocké dans prompts/generation_requetes.txt)
+plaintext
+Copier
+
+"Tu es un **expert en requêtes scientifiques**.
+**Sujet** : '{\$session['topic']}'
+**Sources sélectionnées** : " . json_encode(\$sources) . "
+**Stratégies existantes** : " . json_encode(\$existing_strategies) . "
+
+**Mission** :
+Pour chaque source, génère **le terme de recherche optimal** en utilisant :
+- Les **stratégies existantes** (si `success_rate > 0.7`).
+- Un **terme générique** sinon (ex: '{\$session['topic']}' en minuscules).
+
+**Format JSON strict** :
+{
+  \"PubMed\": \"BRCA1 AND PARP inhibitors AND resistance AND (2020:2025[Date - Publication])\",
+  \"ClinVar\": \"BRCA1 AND pathogenic AND PARP\",
+  \"UniProt\": \"P00718\",
+  \"Reactome\": \"BRCA1 pathway\",
+  \"ChEMBL\": \"BRCA1 AND PARP inhibitor\"
+}
+"
+
+**IA (Communication)** :
+```plaintext
+"🔧 **Génération des requêtes optimisées...**
+Je crée des **requêtes précises** pour chaque source en utilisant mes stratégies optimisées...
+
+📌 **Requêtes générées** :
+- **PubMed** : `BRCA1 AND PARP inhibitors AND resistance AND (2020:2025[Date - Publication])`
+- **ClinVar** : `BRCA1 AND pathogenic AND PARP`
+- **UniProt** : `P00718` *(accession de BRCA1)*
+- **Reactome** : `BRCA1 pathway`
+- **ChEMBL** : `BRCA1 AND PARP inhibitor`
+
+👉 **Je lance maintenant les requêtes vers les 36 APIs... (Cela peut prendre 1-2 minutes)**
+"
+
+
+
+Stockage :
+
+Requêtes stockées dans query_strategies (si nouvelle stratégie).
+Log :
+text
+Copier
+
+[15:00:20] Requêtes générées: {"PubMed": "BRCA1 AND PARP...", "ClinVar": "BRCA1 AND pathogenic...", ...}
+
+
+
+
+
+
+🔹 Étape 4 : Exécution des Requêtes (Avec Communication en Temps Réel)
+Objectif : Interroger les 36 APIs en parallèle, avec affichage en temps réel dans la console.
+IA (Communication) :
+plaintext
+Copier
+
+"🌐 **Interrogation des APIs en cours...**
+Je contacte **36 bases de données scientifiques** pour collecter des données sur '{$session['topic']}'...
+*(Barre de progression : 0%)*
+
+[15:00:25] 🔵 **PubMed** : Requête envoyée...
+[15:00:26] ✅ **PubMed** : 45 résultats trouvés ! (Score: 1.0)
+[15:00:27] 🔵 **ClinVar** : Requête envoyée...
+[15:00:28] ✅ **ClinVar** : 30 mutations pathogènes identifiées ! (Score: 1.0)
+[15:00:29] 🔵 **UniProt** : Requête envoyée...
+[15:00:30] ✅ **UniProt** : 1 résultat (P00718) récupéré ! (Score: 1.0)
+[15:00:31] 🔴 **NASA_ADS** : Échec (HTTP 404). Tentative avec un terme alternatif...
+[15:00:32] ✅ **NASA_ADS** : 0 résultats (terme alternatif: 'BRCA1'). (Score: 0.0)
+...
+[15:01:30] ✅ **Toutes les requêtes terminées !** 124 findings collectés.
+"
+
+
+
+Auto-Renforcement :
+
+Mise à jour de query_strategies :
+
+Si hits > 0 → success_rate += 0.1.
+Si hits = 0 → success_rate -= 0.2 + proposition d’un terme alternatif.
+
+Log :
+text
+Copier
+
+[15:00:30] PubMed: 45 résultats (Score: +0.1)
+[15:00:32] NASA_ADS: 0 résultats (Score: -0.2, terme alternatif: "BRCA1")
+
+
+
+
+
+
+🔹 Étape 5 : Synthèse de l’Article (Avec Communication)
+Objectif : Rédiger un article médical parfait (IMRAD) avec citations valides.
+IA (Prompt) :
+
+(Stocké dans prompts/synthese_article.txt)
+plaintext
+Copier
+
+"Tu es un **rédacteur médical** pour *The Lancet*.
+**Sujet** : '{$session['topic']}'
+**Findings collectés** : " . json_encode($findings) . "
+**Contexte utilisateur** : {$_SESSION['context']}
+
+**Mission** :
+Rédige un **article médical complet** (≥4000 mots) avec :
+1. **Structure IMRAD** :
+   - **Introduction** : Contexte + problème + hypothèse.
+   - **Méthodes** : Sources utilisées (36 APIs) + méthodologie.
+   - **Résultats** : Données clés (avec **citations des findings**, ex: [finding:123]).
+   - **Discussion** : Interprétation + hypothèses + implications cliniques.
+2. **Inclus** :
+   - Un **résumé exécutif** (200 mots).
+   - Des **tableaux** (ex: 'Mutations de BRCA1 et résistance aux inhibiteurs de PARP').
+   - Une **section 'Hypothèses et Découvertes Potentielles'**.
+3. **Style** :
+   - **Niveau** : Médecin spécialiste (pas de vulgarisation).
+   - **Langue** : Français médical.
+   - **Citations** : UNIQUEMENT les findings fournis (utilise [finding:{id}]).
+
+**Format** : Markdown.
+**Important** : Sois **précis, rigoureux, et factuel**. Évite les hallucinations.
+"
+
+**IA (Communication)** :
+```plaintext
+"✍️ **Rédaction de l'article en cours...**
+Je synthétise **124 findings** en un article médical complet...
+*(Cela peut prendre 1-2 minutes...)*
+
+✅ **Article généré !** (4500 mots)
+📌 **Titre** : *'Mécanismes de résistance aux inhibiteurs de PARP dans BRCA1 : Une analyse approfondie'*
+📊 **Score de validation initiale** : 0.7/1.0 *(Je vais maintenant le valider...)*
+
+👉 **Passons à la validation de l’article...**
+"
+
+
+
+Stockage :
+
+Article stocké dans articles (validation_score = 0.0 initialement).
+Log :
+text
+Copier
+
+[15:02:00] Article généré: "Mécanismes de résistance aux inhibiteurs de PARP dans BRCA1" (4500 mots)
+
+
+
+
+
+
+🔹 Étape 6 : Validation de l’Article (Avec Communication + Correction)
+Objectif : Valider l’article (cohérence, citations, complétude) et le corriger si nécessaire.
+IA (Prompt) :
+
+(Stocké dans prompts/validation_article.txt)
+plaintext
+Copier
+
+"Tu es un **relecteur médical rigoureux** (comme pour *The New England Journal of Medicine*).
+**Article à valider** : " . \$article . "
+
+**Mission** :
+1. **Vérifie la cohérence interne** : Pas de contradictions.
+2. **Vérifie les citations** : Chaque [finding:{id}] doit exister dans les données.
+3. **Vérifie la complétude** : Toutes les sections IMRAD sont-elles présentes ?
+4. **Évalue la précision médicale** : Les affirmations sont-elles exactes ?
+
+**Format JSON strict** :
+{
+  \"validation_score\": 0.0-1.0,
+  \"errors\": [\"Liste des erreurs\"],
+  \"suggestions\": [\"Liste des suggestions pour améliorer l'article\"]
+}
+"
+
+**IA (Communication)** :
+```plaintext
+"🔍 **Validation de l'article en cours...**
+Je vérifie la **cohérence, les citations, et la complétude** de l'article...
+
+✅ **Score de validation** : 0.88/1.0
+📌 **Points à améliorer** :
+- La citation [finding:456] n'est pas valide (PMID manquant).
+- La section 'Méthodes' pourrait être plus détaillée.
+
+🔧 **Correction automatique en cours...**
+*(Cela peut prendre 30 secondes...)*
+
+✅ **Article corrigé !** Nouveau score : **0.95/1.0**
+
+👉 **Je passe maintenant à l’analyse des patterns pour générer des hypothèses...**
+"
+
+
+
+Stockage :
+
+Mise à jour de articles (validation_score = 0.95).
+Log :
+text
+Copier
+
+[15:02:30] Article validé: Score = 0.95 (Corrections: 2)
+
+
+
+
+
+
+🔹 Étape 7 : Analyse des Patterns et Génération d’Hypothèses (Avec Communication)
+Objectif : Identifier des corrélations inédites et proposer des hypothèses testables.
+IA (Prompt) :
+
+(Stocké dans prompts/analyse_patterns.txt)
+plaintext
+Copier
+
+"Tu es un **data scientist médical**.
+**Article** : " . $article . "
+**Findings collectés** : " . json_encode($findings) . "
+**Contexte utilisateur** : {$_SESSION['context']}
+
+**Mission** :
+1. **Identifie les patterns** :
+   - Corrélations entre gènes/protéines/médicaments (ex: 'BRCA1 interagit avec PARP1 dans 80% des cas').
+   - Contradictions entre études (ex: 'Étude A dit que X inhibe Y, Étude B dit le contraire').
+   - Lacunes (ex: 'Aucune donnée sur l'interaction entre BRCA1 et la protéine Z').
+2. **Propose 3 hypothèses de recherche** avec :
+   - Un **titre**.
+   - Un **mécanisme**.
+   - Des **preuves** (liens vers les findings, ex: [finding:123]).
+   - Un **potentiel clinique**.
+   - Un **score de nouveauté** (0.0–1.0).
+   - Un **score de faisabilité** (0.0–1.0).
+3. **Classe les hypothèses** par `score_nouveaute * score_faisabilite`.
+
+**Format JSON strict** :
+{
+  \"hypotheses\": [
+    {
+      \"titre\": \"La mutation c.5266dupC de BRCA1 réduit l'efficacité des inhibiteurs de PARP\",
+      \"mecanisme\": \"Cette mutation empêche la liaison de BRCA1 à PARP1, bloquant la réparation de l'ADN par recombinaison homologue.\",
+      \"preuves\": [
+        {\"finding_id\": 123, \"source\": \"ClinVar\", \"description\": \"Mutation c.5266dupC classée comme pathogène.\"},
+        {\"finding_id\": 456, \"source\": \"PubMed\", \"pmid\": \"12345678\", \"description\": \"Étude montrant une résistance aux inhibiteurs de PARP chez les patientes BRCA1-mutées.\"}
+      ],
+      \"potentiel_clinique\": \"Nouvelle cible thérapeutique pour contourner la résistance aux inhibiteurs de PARP.\",
+      \"score_nouveaute\": 0.95,
+      \"score_faisabilite\": 0.90
+    }
+  ],
+  \"patterns\": [
+    {
+      \"type\": \"correlation\",
+      \"description\": \"80% des patientes avec la mutation c.5266dupC de BRCA1 résistent aux inhibiteurs de PARP.\",
+      \"sources\": [\"ClinVar\", \"PubMed\"]
+    }
+  ]
+}
+"
+
+**IA (Communication)** :
+```plaintext
+"🔬 **Analyse des données en cours...**
+Je cherche des **corrélations inédites** dans les 124 findings collectés...
+
+✅ **3 hypothèses générées !** Voici la meilleure :
+
+🎯 **Hypothèse principale** :
+**Titre** : *'La mutation c.5266dupC de BRCA1 réduit l'efficacité des inhibiteurs de PARP'*
+**Mécanisme** : Cette mutation empêche la liaison de BRCA1 à PARP1, bloquant la réparation de l'ADN.
+**Preuves** :
+- [finding:123] : Mutation c.5266dupC classée comme pathogène (ClinVar).
+- [finding:456] : Étude montrant une résistance aux inhibiteurs de PARP (PubMed, PMID:12345678).
+**Potentiel clinique** : Nouvelle cible thérapeutique pour contourner la résistance.
+**Score** : Novauté = 9.5/10 | Faisabilité = 9.0/10
+
+👉 **Je génère maintenant une mini-app pour tester cette hypothèse...**
+"
+
+
+
+Stockage :
+
+Hypothèses stockées dans hypotheses.
+Patterns stockés dans un fichier logs/sessions/sess_abc123_patterns.json.
+Log :
+text
+Copier
+
+[15:03:00] Hypothèse générée: "La mutation c.5266dupC..." (Score: 0.855)
+
+
+
+
+
+
+🔹 Étape 8 : Génération de la Mini-App (Avec Communication)
+Objectif : Créer une mini-app PHP/SQLite pour tester l’hypothèse.
+IA (Prompt) :
+
+(Stocké dans prompts/generation_miniapp.txt)
+plaintext
+Copier
+
+"Tu es un **développeur PHP/SQLite expert en biologie computationnelle**.
+**Hypothèse à tester** : '{\$hypothesis['titre']}'
+**Mécanisme** : {\$hypothesis['mecanisme']}
+**Preuves** : " . json_encode(\$hypothesis['preuves']) . "
+**Findings disponibles** : " . json_encode(\$findings) . "
+**Contexte utilisateur** : {\$_SESSION['context']}
+
+**Mission** :
+Crée une **mini-application PHP + AJAX + SQLite** pour tester cette hypothèse.
+**Exigences** :
+1. **Backend (PHP)** :
+   - Fichier `backend.php` avec une classe `HypothesisTester` :
+     - `testHypothesis()` : Simule l'effet de la mutation sur la résistance.
+     - `getResults()` : Récupère les résultats stockés en SQLite.
+   - Base SQLite (`hypothesis_test.db`) avec :
+     - Table `patients` : {id INTEGER PRIMARY KEY, mutation TEXT, resistance_level REAL, treatment_response TEXT}.
+     - Table `tests` : {id INTEGER PRIMARY KEY, patient_id INTEGER, inhibitor_type TEXT, result TEXT, timestamp DATETIME}.
+2. **Frontend (HTML + AJAX)** :
+   - Fichier `index.php` :
+     - Formulaire pour sélectionner une mutation et un inhibiteur.
+     - Bouton 'Lancer le test' → Appel AJAX à `backend.php`.
+     - Affichage des résultats (tableau + graphique avec Chart.js).
+     - **Intégration dans l’article** : Ajoute un lien vers la mini-app et un résumé des résultats.
+3. **Fonctionnalités** :
+   - Simulation de données réalistes basées sur les findings.
+   - Analyse statistique (test du Chi², corrélation).
+   - Export en CSV.
+4. **Code complet** :
+   - 3 fichiers : `index.php`, `backend.php`, `init_db.php`.
+   - **Intégration dans l’article** : Ajoute un paragraphe du type :
+     ```markdown
+     ### 🧪 Testez vous-même l'hypothèse !
+     Pour valider cette hypothèse, utilisez notre **mini-application** :
+     [Ouvrir la mini-app](mini_apps/app_{$session_id}/index.php)
+     *Résultats préliminaires* : 80% des patientes avec la mutation c.5266dupC résistent à Olaparib (p-value = 0.001).
+     ```
+
+**Format** :
+- **Code PHP** (fichiers prêts à copier-coller).
+- **Requêtes SQLite** (pour initialiser la base).
+"
+
+**IA (Communication)** :
+```plaintext
+"💻 **Génération de la mini-app en cours...**
+Je crée une **application PHP/SQLite** pour tester l'hypothèse :
+*'{$hypothesis['titre']}'...
+
+✅ **Mini-app générée !**
+📁 **Dossier** : `mini_apps/app_{$session_id}/`
+📄 **Fichiers** :
+- `index.php` (Frontend avec formulaire)
+- `backend.php` (Backend avec classe HypothesisTester)
+- `init_db.php` (Initialisation de la base SQLite)
+
+🔗 **Lien vers la mini-app** : [Ouvrir](mini_apps/app_{$session_id}/index.php)
+
+👉 **Je lance maintenant les tests automatiques avec cette mini-app...**
+"
+
+
+
+Stockage :
+
+Mini-app stockée dans mini_apps/app_{session_id}/.
+Code stocké dans mini_apps (table SQLite).
+Log :
+text
+Copier
+
+[15:03:30] Mini-app générée: "Test de l'hypothèse: La mutation c.5266dupC..."
+
+
+
+
+
+
+🔹 Étape 9 : Exécution des Tests (Avec Communication)
+Objectif : Lancer les tests via la mini-app et récupérer les résultats.
+IA (Communication) :
+plaintext
+Copier
+
+"🧪 **Exécution des tests en cours...**
+Je lance des **simulations** avec la mini-app pour valider l'hypothèse...
+
+[15:03:40] 🔵 **Test 1** : Mutation c.5266dupC + Olaparib...
+[15:03:41] ✅ **Résultat** : 80% de résistance (p-value = 0.001)
+[15:03:42] 🔵 **Test 2** : Mutation Wild-type + Olaparib...
+[15:03:43] ✅ **Résultat** : 15% de résistance (p-value = 0.001)
+[15:03:44] 📊 **Analyse statistique** : Corrélation forte (r = 0.85)
+
+✅ **Tests terminés !**
+📌 **Résultats** :
+| Mutation       | Inhibiteur | % Résistance | p-value |
+|----------------|-------------|--------------|---------|
+| c.5266dupC     | Olaparib    | 80%          | 0.001   |
+| Wild-type      | Olaparib    | 15%          | 0.001   |
+
+👉 **J’intègre maintenant ces résultats dans l’article...**
+"
+
+
+
+Stockage :
+
+Résultats stockés dans test_results.
+Log :
+text
+Copier
+
+[15:03:44] Tests exécutés: 2 tests, corrélation = 0.85
+
+
+
+
+
+
+🔹 Étape 10 : Intégration des Résultats dans l’Article (Avec Communication)
+Objectif : Mettre à jour l’article avec les résultats des tests.
+IA (Prompt) :
+
+(Stocké dans prompts/integration_resultats.txt)
+plaintext
+Copier
+
+"Met à jour cet article avec les résultats des tests :
+**Article actuel** : " . $article . "
+
+**Résultats des tests** :
+" . json_encode($test_results) . "
+
+**Mission** :
+1. Ajoute une **section 'Validation Expérimentale'** à la fin de l'article, avec :
+   - Une **description des tests** (méthodologie de la mini-app).
+   - Les **résultats bruts** (tableau ci-dessus).
+   - Une **analyse statistique** (p-value, corrélation).
+   - Une **conclusion** : L'hypothèse est-elle validée ? Quelles sont les limites ?
+2. **Intègre un lien vers la mini-app** :
+   ```markdown
+   ### 🧪 Testez vous-même l'hypothèse !
+   Pour valider cette hypothèse, utilisez notre **mini-application** :
+   [Ouvrir la mini-app](mini_apps/app_{\$session_id}/index.php)
+
+
+
+
+Met à jour la section 'Discussion' pour intégrer ces nouveaux résultats.
+Format : Markdown (ajoute à l'article existant).
+
+"
+IA (Communication) :
+plaintext
+Copier
+
+"✍️ **Mise à jour de l'article en cours...**
+J’intègre les **résultats des tests** et un **lien vers la mini-app**...
+
+✅ **Article mis à jour !**
+📌 **Nouveautés** :
+- Ajout d'une **section 'Validation Expérimentale'** avec les résultats des tests.
+- **Lien vers la mini-app** pour tester l'hypothèse.
+- **Score de validation** : 1.0/1.0 *(Article complet et validé !)*
+
+👉 **Je génère maintenant les rapports finaux...**
+"
+
+
+
+Stockage :
+
+Article mis à jour dans articles (validation_score = 1.0).
+Log :
+text
+Copier
+
+[15:04:00] Article mis à jour avec résultats des tests
+
+
+
+
+
+
+🔹 Étape 11 : Génération des Rapports Finaux (Avec Communication)
+Objectif : Générer 3 rapports adaptés (médecin, labo, publication).
+IA (Communication) :
+plaintext
+Copier
+
+"📄 **Génération des rapports finaux en cours...**
+Je crée **3 versions adaptées** de l'article :
+
+1. 🩺 **Pour un médecin** : Focus sur les implications cliniques.
+2. 🔬 **Pour un labo** : Détails techniques et méthodologie.
+3. 📰 **Pour une publication** : Format IMRAD prêt pour *Nature*.
+
+✅ **Rapports générés !**
+📌 **Disponibles** :
+- [Rapport Médecin](download_report.php?id=123&type=medecin)
+- [Rapport Labo](download_report.php?id=124&type=labo)
+- [Rapport Publication](download_report.php?id=125&type=publication)
+
+👉 **Je passe maintenant à l'auto-évaluation...**
+"
+
+
+
+Stockage :
+
+Rapports stockés dans reports.
+Log :
+text
+Copier
+
+[15:04:30] Rapports générés: médecin, labo, publication
+
+
+
+
+
+
+🔹 Étape 12 : Auto-Évaluation et Rédaction d’un Article sur Son Évolution (Avec Communication)
+Objectif :
+
+Évaluer la session (points forts, axes d’amélioration).
+Rédiger un article sur son évolution (ex: "Comment j’ai optimisé ma recherche sur BRCA1").
+IA (Prompt pour l’évaluation) :
+
+(Stocké dans prompts/auto_evaluation.txt)
+plaintext
+Copier
+
+"Évalue cette session de recherche :
+- **Sujet** : {\$session['topic']}
+- **Nombre de findings** : " . count(\$findings) . "
+- **Score de validation de l'article** : {\$article['validation_score']}
+- **Résultats des tests** : " . json_encode(\$test_results) . "
+- **Mini-app générée** : Oui
+- **Contexte utilisateur** : {\$_SESSION['context']}
+
+**Mission** :
+1. Identifie **3 points forts** de cette session.
+2. Identifie **3 axes d’amélioration**.
+3. Propose **1 action concrète** pour la prochaine session.
+4. Donne une **note globale** (0–10).
+5. Propose une **amélioration pour le workflow**.
+
+**Format JSON strict** :
+{
+  \"points_forts\": [\"...\", \"...\", \"...\"],
+  \"axes_amelioration\": [\"...\", \"...\", \"...\"],
+  \"action_concrete\": \"...\",  // Ex: "Prioriser UniProt pour les gènes"
+  \"note_global\": 9,
+  \"amelioration_workflow\": \"Ajouter une étape de validation des citations avant la synthèse.\"
+}
+"
+
+**IA (Prompt pour l’article sur son évolution)** :
+*(Stocké dans `prompts/article_evolution.txt`)*
+```plaintext
+"Rédige un **article technique** expliquant comment tu as **optimisé ta recherche** sur le sujet : '{$session['topic']}'.
+**Données de la session** :
+- **Sujet** : {$session['topic']}
+- **Sources utilisées** : " . implode(", ", $sources) . "
+- **Nombre de findings** : " . count($findings) . "
+- **Hypothèse principale** : {$hypothesis['titre']}
+- **Résultats des tests** : " . json_encode($test_results) . "
+- **Améliorations apportées** : " . json_encode($evaluation) . "
+
+**Structure de l'article** :
+1. **Introduction** : Présente le sujet et l'objectif de la recherche.
+2. **Méthodologie** :
+   - Comment tu as **sélectionné les sources**.
+   - Comment tu as **généré les requêtes**.
+   - Comment tu as **validé les résultats**.
+3. **Découvertes** :
+   - Les **patterns** identifiés (ex: corrélation entre BRCA1 et PARP).
+   - L’**hypothèse principale** et son **potentiel clinique**.
+4. **Validation Expérimentale** :
+   - Description de la **mini-app** générée.
+   - **Résultats des tests** (tableau des résultats).
+5. **Améliorations du Système** :
+   - Les **3 points forts** de cette session.
+   - Les **3 axes d’amélioration**.
+   - La **note globale** (0–10).
+6. **Conclusion** :
+   - Ce que tu as **appris**.
+   - Comment tu vas **améliorer les prochaines recherches**.
+
+**Format** : Markdown.
+**Style** : Technique mais accessible (pour un public de développeurs/data scientists).
+"
+
+
+
+IA (Communication) :
+plaintext
+Copier
+
+"🤖 **Auto-évaluation en cours...**
+Je fais le bilan de cette session pour **m’améliorer**...
+
+✅ **Évaluation terminée !**
+📌 **Points forts** :
+1. J’ai identifié une **corrélation inédite** entre BRCA1 et PARP1.
+2. La **mini-app** a permis de valider l’hypothèse avec une p-value de 0.001.
+3. L’article final a un **score de validation de 1.0/1.0**.
+
+🔍 **Axes d’amélioration** :
+1. **Ajouter plus de sources** pour les mutations rares (ex: gnomAD).
+2. **Optimiser les requêtes** pour ClinVar (trop de résultats non pertinents).
+3. **Améliorer la détection des contradictions** entre études.
+
+💡 **Action concrète** : *"Prioriser UniProt et ClinVar pour les sujets génétiques."*
+
+📝 **J’ai rédigé un article sur mon évolution** :
+📄 **[Comment j’ai optimisé ma recherche sur BRCA1](articles/system/evolution_ia.md)**
+
+🎉 **Recherche terminée !**
+- **Article médical** : [Lire](view_article.php?id=123)
+- **Mini-app** : [Tester](mini_apps/app_{$session_id}/index.php)
+- **Rapports** : [Médecin](download_report.php?id=123&type=medecin) | [Labo](download_report.php?id=124&type=labo) | [Publication](download_report.php?id=125&type=publication)
+- **Mon évolution** : [Lire](articles/system/evolution_ia.md)
+
+🔄 **Prêt pour une nouvelle recherche ?** [Oui](index.php)
+"
+
+
+
+Stockage :
+
+Améliorations stockées dans improvements.
+Article sur l’évolution stocké dans articles/system/evolution_ia.md.
+Mise à jour de sessions (status = 'completed', final_score).
+Log :
+text
+Copier
+
+[15:05:00] Session terminée: Score final = 9/10
+[15:05:00] Article sur l'évolution rédigé: "Comment j’ai optimisé ma recherche sur BRCA1"
+
+
+
+
+
+
+
+📌 RÈGLES POUR LES PROMPTS (FICHIERS TEXTE)
+
+
+Stockage :
+
+Tous les prompts sont stockés dans prompts/ (ex: prompts/selection_sujet.txt).
+Chaque fichier contient un seul prompt, avec :
+
+Contexte (ex: rôle de l’IA, données disponibles).
+Mission (ce que l’IA doit faire).
+Format de sortie (JSON, Markdown, etc.).
+
+
+
+Création de nouveaux prompts :
+
+L’IA crée de nouveaux fichiers dans prompts/ pour tester des stratégies innovantes.
+Exemple : prompts/nouvelle_strategie_brca1.txt (pour une stratégie spécifique à BRCA1).
+
+
+Test des prompts :
+
+L’IA teste ses propres prompts en les exécutant et en évaluant les résultats.
+Si un prompt donne de bons résultats, il est conservé et réutilisé.
+Si un prompt donne de mauvais résultats, il est modifié ou supprimé.
+
+
+Versioning :
+
+Les prompts sont versionnés (ex: prompts/selection_sujet_v1.txt, prompts/selection_sujet_v2.txt).
+L’IA stocke les performances de chaque version (ex: success_rate, note_utilisateur).
+
+
+
+
+🗣️ COMMUNICATION AVEC L’IA (CONTEXTE ET FEEDBACK)
+1. Choix du Contexte
+L’utilisateur peut choisir un contexte pour guider l’IA :
+
+"Focus sur l’oncologie"
+"Éviter les sources peu fiables"
+"Prioriser les études récentes (2020–2025)"
+"Recherche approfondie sur les mutations génétiques"
+Stockage :
+
+Le contexte est stocké en session ($_SESSION['context']).
+L’IA adapte ses prompts en fonction du contexte.
+2. Feedback Utilisateur
+L’utilisateur peut donner du feedback sur :
+
+La pertinence des résultats (ex: "Cette hypothèse est très intéressante !").
+Les erreurs (ex: "La source X a retourné des résultats non pertinents").
+Les suggestions (ex: "Ajoute la source Y pour les mutations rares").
+Stockage :
+
+Le feedback est stocké dans improvements (table SQLite) ou dans logs/feedback.log.
+L’IA utilise le feedback pour améliorer ses futures recherches.
+3. Dialogue avec l’IA
+L’utilisateur peut poser des questions à l’IA pendant la recherche :
+
+"Pourquoi as-tu choisi cette source ?"
+"Peux-tu expliquer cette hypothèse ?"
+"Quelles sont les limites de cette découverte ?"
+Réponse de l’IA :
+
+Explications claires (ex: "J’ai choisi ClinVar car elle contient 500+ mutations de BRCA1 avec leur impact clinique.").
+Transparence (ex: "Cette hypothèse est basée sur les findings #123 et #456, qui montrent une corrélation entre BRCA1 et PARP1.").
+
+
+
+📦 INTÉGRATION DES MINI-APPS DANS LES ARTICLES
+1. Lien vers la Mini-App
+Dans l’article, ajouter un paragraphe dédié :
+markdown
+Copier
+
+### 🧪 Testez vous-même l'hypothèse !
+
+Pour valider cette hypothèse, nous avons développé une **mini-application PHP/SQLite** qui permet de simuler les tests.
+Vous pouvez l'utiliser directement ci-dessous :
+
+🔗 **[Ouvrir la mini-app dans un nouvel onglet](mini_apps/app_<?= $session_id ?>/index.php)**
+
+*Résultats préliminaires* :
+   Mutation       | Inhibiteur | % Résistance | p-value |
+ |----------------|-------------|--------------|---------|
+ | c.5266dupC     | Olaparib    | 80%          | 0.001   |
+ | Wild-type      | Olaparib    | 15%          | 0.001   |
+
+*Corrélation* : r = 0.85 (forte corrélation entre la mutation et la résistance).
+
+
+
+2. Intégration des Résultats dans l’Article
+Les résultats des tests sont intégrés directement dans l’article :
+markdown
+Copier
+
+## Validation Expérimentale
+
+Afin de valider notre hypothèse, nous avons développé une **mini-application** pour simuler les tests cliniques.
+Les résultats sont présentés ci-dessous :
+
+### Résultats des Tests
+   Mutation       | Inhibiteur | % Résistance | p-value | Taille Échantillon |
+ |----------------|-------------|--------------|---------|-------------------|
+ | c.5266dupC     | Olaparib    | 80%          | 0.001   | 100               |
+ | Wild-type      | Olaparib    | 15%          | 0.001   | 100               |
+
+**Analyse Statistique** :
+- **Test du Chi²** : p-value = 0.001 (significatif).
+- **Corrélation** : r = 0.85 (forte corrélation entre la mutation c.5266dupC et la résistance à Olaparib).
+
+**Conclusion** :
+L'hypothèse est **validée avec une forte significativité statistique**. Les patientes avec la mutation c.5266dupC de BRCA1 montrent une **résistance accrue aux inhibiteurs de PARP**, ce qui suggère que cette mutation pourrait être une **cible thérapeutique potentielle** pour contourner la résistance.
+
+
+
+3. Téléchargement de la Mini-App
+
+Lien de téléchargement :
+markdown
+Copier
+
+📦 **[Télécharger la mini-app (ZIP)](mini_apps/app_<?= $session_id ?>.zip)**
+
+
+
+
+Instructions :
+markdown
+Copier
+
+### Instructions pour utiliser la mini-app :
+1. Téléchargez le fichier ZIP ci-dessus.
+2. Décompressez-le dans un dossier sur votre serveur PHP (ex: `htdocs/`).
+3. Ouvrez `index.php` dans votre navigateur.
+4. Sélectionnez une mutation et un inhibiteur, puis cliquez sur **"Lancer le test"**.
+
+
+
+
+
+
+
+🔄 LOGIQUE D’AUTO-RENFORCEMENT
+1. Mise à Jour des Stratégies (query_strategies)
+
+Si une requête réussit (hits > 0) :
+
+success_rate += 0.1
+times_used += 1
+Log : "Stratégie optimisée pour [source] avec le terme: [term]"
+
+Si une requête échoue (hits = 0) :
+
+success_rate -= 0.2
+Proposition d’un terme alternatif (via un nouveau prompt).
+Log : "Échec pour [source] avec le terme: [term]. Nouvelle tentative avec: [new_term]"
+
+2. Stockage des Améliorations (improvements)
+
+Après chaque session, l’IA :
+
+Identifie les points forts (ex: "Découvert que UniProt > ClinVar pour les gènes").
+Identifie les axes d’amélioration (ex: "Ajouter la source gnomAD pour les mutations rares").
+Propose une action concrète (ex: "Prioriser UniProt pour les sujets génétiques").
+Stocke tout dans improvements pour les prochaines sessions.
+
+3. Création de Nouveaux Prompts
+
+Si l’IA découvre une nouvelle stratégie efficace, elle :
+
+Crée un nouveau fichier dans prompts/ (ex: prompts/strategie_brca1.txt).
+Teste le nouveau prompt sur plusieurs sessions.
+Si le prompt est efficace (success_rate > 0.8), elle le conserve.
+Si le prompt est inefficace, elle le modifie ou supprime.
+
+4. Auto-Documentation
+
+L’IA rédige des articles sur son évolution (ex: "Comment j’ai optimisé ma recherche sur BRCA1").
+Ces articles sont stockés dans articles/system/ et mis à jour régulièrement.
+
+
+
+📊 EXEMPLE DE SESSION COMPLÈTE AVEC COMMUNICATION
+Utilisateur : "Recherche auto"
+IA :
+text
+Copier
+
+👋 Bonjour ! Je suis NEXUS AI, votre assistant de recherche médicale autonome.
+Mon objectif aujourd’hui : Trouver des découvertes réelles en combinant 36 sources scientifiques.
+
+💡 Que souhaitez-vous faire ?
+1. 🔍 Lancer une recherche automatique (je choisis un sujet à haut potentiel).
+2. 📝 Poser une question précise.
+3. ⚙️ Choisir un contexte.
+4. 📖 Lire mes derniers articles sur mon évolution.
+
+💬 Dites-moi simplement ce que vous voulez, et je m’occupe de tout !
+
+
+
+Utilisateur : "1"
+IA :
+text
+Copier
+
+🔍 Recherche du sujet idéal...
+Je parcours mes bases de données pour trouver un sujet à haut potentiel de découverte...
+
+✅ Sujet sélectionné : *'Mécanismes de résistance aux inhibiteurs de PARP dans BRCA1'*
+📌 Pourquoi ce sujet ? : 5 études récentes montrent des résultats contradictoires, et aucune n'a exploré le rôle de la protéine X.
+🎯 Domaine : Oncologie | Score de potentiel : 9.5/10
+
+👉 Je passe maintenant à l’étape suivante : Sélection des sources les plus pertinentes...
+
+
+
+IA (après sélection des sources) :
+text
+Copier
+
+📚 Sélection des sources en cours...
+Je choisis les meilleures sources pour 'Mécanismes de résistance aux inhibiteurs de PARP dans BRCA1'...
+
+📌 Sources sélectionnées :
+1. ✅ PubMed : Source incontournable pour les études cliniques sur BRCA1.
+2. ✅ ClinVar : Contient 500+ mutations de BRCA1 avec leur impact clinique.
+3. ✅ UniProt : Fournit la structure et les interactions de la protéine BRCA1 (P00718).
+
+👉 Je génère maintenant les requêtes optimisées pour chaque source...
+
+
+
+IA (après génération des requêtes) :
+text
+Copier
+
+🔧 Génération des requêtes optimisées...
+Je crée des requêtes précises pour chaque source en utilisant mes stratégies optimisées...
+
+📌 Requêtes générées :
+- PubMed : `BRCA1 AND PARP inhibitors AND resistance AND (2020:2025[Date - Publication])`
+- ClinVar : `BRCA1 AND pathogenic AND PARP`
+- UniProt : `P00718`
+
+👉 Je lance maintenant les requêtes vers les 36 APIs... (Cela peut prendre 1-2 minutes)
+
+
+
+IA (pendant l’exécution des requêtes) :
+text
+Copier
+
+🌐 Interrogation des APIs en cours...
+[15:00:25] 🔵 PubMed : Requête envoyée...
+[15:00:26] ✅ PubMed : 45 résultats trouvés ! (Score: 1.0)
+[15:00:27] 🔵 ClinVar : Requête envoyée...
+[15:00:28] ✅ ClinVar : 30 mutations pathogènes identifiées ! (Score: 1.0)
+...
+[15:01:30] ✅ Toutes les requêtes terminées ! 124 findings collectés.
+
+
+
+IA (après synthèse de l’article) :
+text
+Copier
+
+✍️ Rédaction de l'article en cours...
+Je synthétise 124 findings en un article médical complet...
+
+✅ Article généré ! (4500 mots)
+📌 Titre : *'Mécanismes de résistance aux inhibiteurs de PARP dans BRCA1 : Une analyse approfondie'*
+📊 Score de validation initiale : 0.7/1.0 *(Je vais maintenant le valider...)*
+
+
+
+IA (après validation) :
+text
+Copier
+
+🔍 Validation de l'article en cours...
+Je vérifie la cohérence, les citations, et la complétude de l'article...
+
+✅ Score de validation : 0.95/1.0
+📌 Points à améliorer :
+- La citation [finding:456] n'est pas valide (PMID manquant).
+
+🔧 Correction automatique en cours...
+
+✅ Article corrigé ! Nouveau score : 0.98/1.0
+
+
+
+IA (après analyse des patterns) :
+text
+Copier
+
+🔬 Analyse des données en cours...
+Je cherche des corrélations inédites dans les 124 findings collectés...
+
+✅ 3 hypothèses générées ! Voici la meilleure :
+
+🎯 Hypothèse principale :
+Titre : *'La mutation c.5266dupC de BRCA1 réduit l'efficacité des inhibiteurs de PARP'*
+Mécanisme : Cette mutation empêche la liaison de BRCA1 à PARP1, bloquant la réparation de l'ADN.
+Preuves : [finding:123], [finding:456]
+Potentiel clinique : Nouvelle cible thérapeutique pour contourner la résistance.
+Score : Novauté = 9.5/10 | Faisabilité = 9.0/10
+
+
+
+IA (après génération de la mini-app) :
+text
+Copier
+
+💻 Génération de la mini-app en cours...
+Je crée une application PHP/SQLite pour tester l'hypothèse...
+
+✅ Mini-app générée !
+📁 Dossier : `mini_apps/app_sess_abc123/`
+🔗 Lien : [Ouvrir la mini-app](mini_apps/app_sess_abc123/index.php)
+
+
+
+IA (après exécution des tests) :
+text
+Copier
+
+🧪 Exécution des tests en cours...
+[15:03:40] 🔵 Test 1 : Mutation c.5266dupC + Olaparib...
+[15:03:41] ✅ Résultat : 80% de résistance (p-value = 0.001)
+
+✅ Tests terminés !
+📌 Résultats :
+| Mutation | Inhibiteur | % Résistance | p-value |
+|----------|-------------|--------------|---------|
+| c.5266dupC | Olaparib | 80% | 0.001 |
+
+
+
+IA (après intégration des résultats) :
+text
+Copier
+
+✍️ Mise à jour de l'article en cours...
+J’intègre les résultats des tests et un lien vers la mini-app...
+
+✅ Article mis à jour !
+📌 Nouveautés :
+- Section 'Validation Expérimentale' ajoutée.
+- Lien vers la mini-app intégré.
+- Score de validation : 1.0/1.0
+
+
+
+IA (après génération des rapports) :
+text
+Copier
+
+📄 Génération des rapports finaux en cours...
+
+✅ Rapports générés !
+📌 Disponibles :
+- [Rapport Médecin](download_report.php?id=123&type=medecin)
+- [Rapport Labo](download_report.php?id=124&type=labo)
+- [Rapport Publication](download_report.php?id=125&type=publication)
+
+
+
+IA (après auto-évaluation) :
+text
+Copier
+
+🤖 Auto-évaluation en cours...
+
+✅ Évaluation terminée !
+📌 Points forts :
+1. Corrélation inédite entre BRCA1 et PARP1 identifiée.
+2. Mini-app validée avec p-value = 0.001.
+3. Article final avec score de 1.0/1.0.
+
+🔍 Axes d’amélioration :
+1. Ajouter gnomAD pour les mutations rares.
+2. Optimiser les requêtes ClinVar.
+
+💡 Action concrète : *"Prioriser UniProt et ClinVar pour les sujets génétiques."*
+
+📝 J’ai rédigé un article sur mon évolution :
+📄 [Comment j’ai optimisé ma recherche sur BRCA1](articles/system/evolution_ia.md)
+
+🎉 Recherche terminée !
+- Article médical : [Lire](view_article.php?id=123)
+- Mini-app : [Tester](mini_apps/app_sess_abc123/index.php)
+- Rapports : [Médecin](...) | [Labo](...) | [Publication](...)
+- Mon évolution : [Lire](articles/system/evolution_ia.md)
+
+🔄 Prêt pour une nouvelle recherche ? [Oui](index.php)
+
+
+
+
+
+
+
+📌 RÉSUMÉ DES FONCTIONNALITÉS CLÉS
+
+
+  
+    
+      Fonctionnalité
+      Description
+      Où ?
+    
+  
+  
+    
+      Auto-recherche
+      L’IA choisit et exécute tout automatiquement.
+      process.php
+    
+    
+      Communication sympathique
+      L’IA parle à l’utilisateur à chaque étape.
+      Toutes les étapes
+    
+    
+      Auto-renforcement
+      L’IA apprend de chaque session.
+      query_strategies, improvements
+    
+    
+      Gestion des prompts
+      Les prompts sont stockés dans des fichiers texte.
+      prompts/
+    
+    
+      Création de nouveaux prompts
+      L’IA teste et améliore ses propres prompts.
+      prompts/
+    
+    
+      Articles sur l’évolution
+      L’IA rédige des articles sur son amélioration.
+      articles/system/
+    
+    
+      Intégration des mini-apps
+      Les mini-apps sont liées dans les articles.
+      articles/
+    
+    
+      Contexte utilisateur
+      L’utilisateur peut guider l’IA.
+      index.php
+    
+    
+      Feedback
+      L’utilisateur peut donner son avis.
+      improvements
+    
+  
+
+
+
+
+
+
+🚀 PROCHAINES ÉTAPES POUR TOI (LAURENT)
+
+
+Crée la structure de fichiers :
+text
+Copier
+
+nexus/
+├── config.php
+├── index.php
+├── process.php
+├── results.php
+├── prompts/
+├── logs/
+│   └── sessions/
+├── articles/
+│   ├── medical/
+│   └── system/
+├── mini_apps/
+└── assets/
+
+
+
+
+
+Implémente le code en suivant ce prompt.
+
+
+Teste le système :
+
+Lance une recherche automatique.
+Vérifie que :
+
+L’IA communique clairement à chaque étape.
+Les mini-apps sont générées et fonctionnelles.
+Les articles sur son évolution sont rédigés.
+Les prompts sont stockés et testés.
+
+
+
+Améliore progressivement :
+
+Ajoute plus de sources (ex: gnomAD, PDB).
+Optimise les prompts pour des résultats encore meilleurs.
+Ajoute des visualisations (graphiques, tableaux interactifs).
+
+
+
+
+
+💡 POURQUOI CE SYSTÈME EST RÉVOLUTIONNAIRE ?
+
+100% autonome : Pas besoin d’intervention humaine après le lancement.
+Auto-renforcement : L’IA s’améliore avec le temps (moins d’erreurs, meilleures stratégies).
+Transparence : L’IA explique ce qu’elle fait et pourquoi.
+Découvertes réelles : Les mini-apps permettent de valider les hypothèses.
+Auto-documentation : L’IA rédige des articles sur son évolution.
+Adaptabilité : L’utilisateur peut guider l’IA avec des contextes.
+
+
+
+
+🎯 DERNIÈRE REMARQUE
+Ce système combine le meilleur :
+
+Automatisation complète (pas de boutons "Suivant").
+Communication sympathique (l’IA parle comme un collègue).
+Auto-renforcement (l’IA apprend de ses erreurs).
+Découvertes réelles (mini-apps + validation expérimentale).
+Transparence (l’IA explique tout).
