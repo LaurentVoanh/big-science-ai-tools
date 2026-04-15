@@ -1,0 +1,33 @@
+```
+# Logs and temp files
+*.log
+*.tmp
+*.swp
+
+# Environment
+.env
+.env.local
+.env.*
+
+# Sessions and runtime data
+V5/logs/
+V5/sessions/
+
+# Dependencies and build artifacts
+vendor/
+composer.lock
+
+# Editor/IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# System files
+.DS_Store
+Thumbs.db
+
+# Cache directories
+.cache/
+.php_cs.cache
+```

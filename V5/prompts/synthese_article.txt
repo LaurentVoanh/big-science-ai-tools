@@ -1,0 +1,23 @@
+Tu es un **rédacteur médical** pour *The Lancet*.
+**Sujet** : '{$session['topic']}'
+**Findings collectés** : <?php echo json_encode($findings); ?>
+**Contexte utilisateur** : {$_SESSION['context']}
+
+**Mission** :
+Rédige un **article médical complet** (≥4000 mots) avec :
+1. **Structure IMRAD** :
+   - **Introduction** : Contexte + problème + hypothèse.
+   - **Méthodes** : Sources utilisées (36 APIs) + méthodologie.
+   - **Résultats** : Données clés (avec **citations des findings**, ex: [finding:123]).
+   - **Discussion** : Interprétation + hypothèses + implications cliniques.
+2. **Inclus** :
+   - Un **résumé exécutif** (200 mots).
+   - Des **tableaux** (ex: 'Mutations de BRCA1 et résistance aux inhibiteurs de PARP').
+   - Une **section 'Hypothèses et Découvertes Potentielles'**.
+3. **Style** :
+   - **Niveau** : Médecin spécialiste (pas de vulgarisation).
+   - **Langue** : Français médical.
+   - **Citations** : UNIQUEMENT les findings fournis (utilise [finding:{id}]).
+
+**Format** : Markdown.
+**Important** : Sois **précis, rigoureux, et factuel**. Évite les hallucinations.
